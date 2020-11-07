@@ -64,7 +64,7 @@ class Database(threading.Thread):
 
         while True:
             threat = self._insert_queue.get()
-
+            print(threat)
             c = self._conn.cursor()
             if threat[0] == Database.THREAT_ENTRY:
                 c.execute('''INSERT INTO threats

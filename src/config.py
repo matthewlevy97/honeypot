@@ -13,6 +13,7 @@ config = {
     'modules': {
         'HTTPModule': {
             'description': 'HTTP Honeypot',
+            'advertise_version': 'httpd',
             'backends': {
                 'BusyBox'
             }
@@ -20,7 +21,8 @@ config = {
     },
     'backends': {
         'BusyBox': {
-            'description': 'BusyBox Emulator'
+            'description': 'BusyBox Emulator',
+            'advertise_version': 'BusyBox v1.20.0 (2012-04-22 12:29:58 CEST) multi-call binary.'
         }
     }
 }

@@ -1,96 +1,51 @@
+from backends._busybox.busybox_command import BusyBoxCommand
+from backends._busybox.wget import BusyBoxWget
+from backends._busybox.echo import BusyBoxEcho
 from core.honeybackend import HoneyBackend
 from core.honeymodule import HoneyHandler
 from config import config
-import getopt
 import logging
+import json
+
+# TODO: Switch to gnu_getopt() ???
 
 BACKEND_NAME = 'BusyBox'
 logger = logging.getLogger(__name__)
 
-class BusyBoxCommand(object):
-    def __init__(self, name: str):
-        self.name = name
-    '''
-    (
-        output,
-        [
-            {
-                'action': str,
-                'data': bytes
-            }
-        ]
-    )
-    '''
-    def execute(self, params: list) -> tuple:
-        raise NotImplementedError()
-
-'''
-echo
-echo [-neE] [ARG...]
-
-Print the specified ARGs to stdout
-
-Options:
-
-        -n      Suppress trailing newline
-        -e      Interpret backslash-escaped characters (i.e., \t=tab)
-        -E      Disable interpretation of backslash-escaped characters
-'''
-class BusyBoxEcho(BusyBoxCommand):
-    SPACES_IN_TAB = 4
-    def __init__(self):
-        super(BusyBoxEcho, self).__init__('echo')
-    def execute(self, params: list) -> tuple:
-        try:
-            args = getopt.getopt(params, 'neE')
-        except:
-            # Just return everything
-            return (' '.join(params) + '\n', [])
-        add_newline    = True
-        interpret_tab  = False
-        disable_interp = False
-        for arg in args[0]:
-            if arg[0] == '-n':
-                add_newline = False
-            elif arg[0] == '-e':
-                interpret_tab = True
-            elif arg[0] == '-E':
-                disable_interp = True
-        output = []
-        for param in args[1]:
-            if param.find('\\x') >= 0 and not disable_interp:
-                try:
-                    param = param.encode('utf-8').decode('unicode_escape')
-                except Exception as e:
-                    print(e)
-                    pass
-            if param.find('\\t') >= 0 and interpret_tab:
-                param = param.replace('\\t', ' ' * BusyBoxEcho.SPACES_IN_TAB)
-            output.append(param)
-        output = ' '.join(output)
-        if add_newline:
-            output += '\n'
-        return (output, [{'action': 'ECHO_OUTPUT', 'data': ' '.join(params)}])
-
 class BusyBox(HoneyBackend):
     COMMANDS = {
-        'echo': BusyBoxEcho
+        'echo': BusyBoxEcho,
+        'wget': BusyBoxWget
     }
     def __init__(self, handler: HoneyHandler):
         super(BusyBox, self).__init__(BACKEND_NAME, handler)
         self._buffer = b''
+        self._previous_return_value = 0
     def handle_input(self, data: bytes, one_shot: bool = False) -> dict:
         self._buffer += data
         
         statement = self._getStatement(one_shot)
-        output, actions = self._parse_statement(statement.decode('utf-8'))
+        ret_val = 1
+        output, actions, ret_val = self._parse_statement(statement.decode('utf-8'))
         for action in actions:
-            self.addBackendAction(action['action'], action['data'])
+            if type(action['data']) == str:
+                self.addBackendAction(action['action'], action['data'])
+            else:
+                self.addBackendAction(action['action'], json.dumps(action['data']))
 
+        self._previous_return_value = ret_val
         return {
             'success': statement != None,
             'output': output.encode('utf-8') if output else None
         }
+    def help(self) -> str:
+        ret = ''
+        for command in BusyBox.COMMANDS:
+            ret += '{}, '.format(command)
+        if ret:
+            return ret[:-2]
+        return ret
+        
     def _getStatement(self, one_shot: bool):
         pos_newline   = self._buffer.find(b'\n')
         pos_semicolon = self._buffer.find(b';')
@@ -113,7 +68,14 @@ class BusyBox(HoneyBackend):
         if tokenize[0].lower() in BusyBox.COMMANDS:
             cmd = BusyBox.COMMANDS[tokenize[0]]()
             return cmd.execute(tokenize[1:])
+        elif tokenize[0].lower() == 'help':
+            if len(tokenize) > 1 and tokenize[1].lower() in BusyBox.COMMANDS:
+                cmd = BusyBox.COMMANDS[tokenize[1]]()
+                return (cmd.help(), [{'action': 'COMMAND_HELP', 'data': tokenize[1]}], 1)
+            else:
+                return (self.help(), [{'action': 'COMMAND_HELP', 'data': None}], 1)
         
         return ('{}: applet not found\n'.format(tokenize[0]),
-            [{'action': 'APPLET_NOT_FOUND', 'data': tokenize[0]}]
+            [{'action': 'APPLET_NOT_FOUND', 'data': tokenize[0]}],
+            1
         )

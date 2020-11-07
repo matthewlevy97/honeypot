@@ -5,6 +5,7 @@ from config import config
 import json
 import logging
 import socket
+import time
 
 MODULE_NAME = 'HTTPModule'
 logger = logging.getLogger(__name__)
@@ -38,6 +39,8 @@ class HTTPHandler(HoneyHandler):
         self.addThreatInfo('HTTP Headers', json.dumps(request.headers))
         
         response = HTTPResponse(200)
+        response.addHeader('date', time.strftime('%a, %d %b %Y %H:%M:%S %Z', time.gmtime()))
+        response.addHeader('server', config['modules'][MODULE_NAME]['advertise_version'])
 
         for param in request.params():
             for backend_name in config['modules'][MODULE_NAME]['backends']:
