@@ -1,4 +1,5 @@
 from core.honeymodule import HoneyHandler
+from core.honeyfs import filesystem_collector
 from core.db import database
 from config import config
 import logging
@@ -37,7 +38,8 @@ class HoneyBackend(object):
     Returns:
     {
         'success': bool,
-        'output': bytes
+        'output':  bytes,
+        'exit':    bool
     }
     '''
     def handle_input(self, data: bytes, one_shot: bool = False) -> dict:
@@ -52,6 +54,28 @@ class HoneyBackend(object):
         return self._uid
     def get_session_id(self) -> str:
         return self._session_id
+
+class HoneyShell(HoneyBackend):
+    def __init__(self, name: str, handler: HoneyHandler, user: str, description: str = None):
+        super(HoneyShell, self).__init__(name, handler, description)
+        self._user = user
+        self._fs = filesystem_collector.getFilesystem(
+            config['backends'][name]['filesystem']
+        )(self._handler)
+    def get_cwd(self) -> str:
+        if self._fs:
+            cwd = self._fs.get_cwd()
+            if cwd:
+                return cwd['name']
+        return '/'
+    def get_current_user(self) -> str:
+        return self._user
+    def set_current_user(self, user: str) -> None:
+        self._user = user
+    def help(self):
+        raise NotImplementedError()
+    def get_prompt(self) -> str:
+        raise NotImplementedError()
 
 class HoneyBackendCollector(object):
     def __init__(self):

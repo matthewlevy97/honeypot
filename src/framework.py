@@ -7,6 +7,7 @@ from core.honeyfs import filesystem_collector
 from core.db import database
 from filesystems.iot import IOTFS
 from modules.http_server import HTTPModule
+from modules.telnet_server import TelnetModule
 import logging
 import os
 
@@ -25,6 +26,7 @@ def main():
     # Add modules
     serve = HoneyServe()
     serve.addModule(HTTPModule())
+    serve.addModule(TelnetModule())
 
     # Start database handler
     database.start()

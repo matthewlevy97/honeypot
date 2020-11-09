@@ -11,11 +11,17 @@ MODULE_NAME = 'HTTPModule'
 logger = logging.getLogger(__name__)
 
 class HTTPModule(HoneyModule):
-    def __init__(self, address: str = '0.0.0.0', port: int = 8080):
+    def __init__(self, address: str = None, port: int = 0):
         global MODULE_NAME
         super(HTTPModule, self).__init__(MODULE_NAME, HTTPHandler)
-        self._address = address
-        self._port    = port
+        if address:
+            self._address = address
+        else:
+            self._address = config['modules'][MODULE_NAME]['default']['address']
+        if port > 0:
+            self._port = port
+        else:
+            self._port = config['modules'][MODULE_NAME]['default']['port']
         self._server  = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     def bind_server(self) -> bool:
         self._server.bind((self._address, self._port))
@@ -45,6 +51,7 @@ class HTTPHandler(HoneyHandler):
         for backend_name in config['modules'][MODULE_NAME]['path_backends']:
             backend = backend_collector.getBackend(backend_name)
             if not backend:
+                logger.warning('Cannot find backend: {}'.format(backend_name))
                 continue
             b = backend(self)
             b_response = b.handle_input(request.path.encode('utf-8'), one_shot=True)

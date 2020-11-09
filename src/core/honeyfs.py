@@ -41,7 +41,7 @@ class HoneyFS(object):
         else:
             self._path = config['filesystem'][name]['path']
 
-        self._fs  = self.create_directory('/', True)
+        self._fs  = self.create_directory('/', self._path, True)
         self._cwd = self._fs
         self._modified = False
 
@@ -55,8 +55,11 @@ class HoneyFS(object):
         database.insertData(database.FILESYSTEM_ENTRY, name, self._description, self._uid)
     def get_cwd(self) -> dict:
         return self._cwd
-    def set_cwd(self, new_cwd: dict) -> None:
-        self._cwd = new_cwd
+    def set_cwd(self, new_cwd: dict) -> dict:
+        if new_cwd and new_cwd['type'] == HoneyFS.HONEYFS_DIRECTORY:
+            self._cwd = new_cwd
+            return self._cwd
+        return None
     def write_file(self, honey_file: dict, data: bytes, mode: int) -> bool:
         if honey_file['type'] != HoneyFS.HONEYFS_FILE:
             return False
@@ -162,17 +165,16 @@ class HoneyFS(object):
             'MOVE_FILE_SUCCESS', json.dumps([src_filename, dst_filename])
         )
         return True
-    def create_directory(self, name: str, setup_create: bool = False) -> dict:
+    def create_directory(self, name: str, real_path: str, setup_create: bool = False) -> dict:
         ret = {'files': []}
-        ret.update(self._create_general(HoneyFS.HONEYFS_DIRECTORY, name))
+        ret.update(self._create_general(HoneyFS.HONEYFS_DIRECTORY, name, real_path))
         if not setup_create:
             self.addFilesystemAction(
                 'CREATE_DIRECTORY', json.dumps(ret)
             )
         return ret
     def create_file(self, name: str, real_path: str, setup_create: bool = False) -> dict:
-        ret = {'real_path': real_path}
-        ret.update(self._create_general(HoneyFS.HONEYFS_FILE, name))
+        ret = self._create_general(HoneyFS.HONEYFS_FILE, name, real_path)
         if not setup_create:
             self.addFilesystemAction(
                 'CREATE_FILE', json.dumps(ret)
@@ -197,7 +199,7 @@ class HoneyFS(object):
         path_spl = list(filter(None, path_spl))
         if len(path_spl) == 0:
             return '/'
-        return '/'.join(path_spl)
+        return ('/' if path[0] == '/' else '') + '/'.join(path_spl)
     def _flush_write(self, honey_file: dict, contents: bytes, append: bool = False) -> None:
         fs_file = '{}/{}/{}/{}'.format(
             config['artifacts']['dir_name'],
@@ -229,7 +231,7 @@ class HoneyFS(object):
                         target_file = fs_obj
                         break
                 if not target_file:
-                    target_file = self.create_directory(d_actual, True)
+                    target_file = self.create_directory(d_actual, real_path, True)
                     cwd['files'].append(target_file)
                 cwd = target_file
 
@@ -238,7 +240,7 @@ class HoneyFS(object):
                 cwd['files'].append(
                     self.create_file(filename, '{}/{}'.format(real_path, filename), True)
                 )
-    def _create_general(self, ftype: int, name: str, user: str = None, group: str = None, perms: int = 0):
+    def _create_general(self, ftype: int, name: str, real_path: str, user: str = None, group: str = None, perms: int = 0):
         if not user:
             user = config['filesystem']['default']['user']
         if not group:
@@ -246,12 +248,13 @@ class HoneyFS(object):
         if perms == 0:
             perms = config['filesystem']['default']['perms']
         return {
-            'file_id': uuid.uuid4().hex,
-            'type':    ftype,
-            'name':    name,
-            'user':    user,
-            'group':   group,
-            'perms':   perms
+            'file_id':   uuid.uuid4().hex,
+            'type':      ftype,
+            'name':      name,
+            'real_path': real_path,
+            'user':      user,
+            'group':     group,
+            'perms':     perms
         }
 
 class HoneyFSCollector(object):

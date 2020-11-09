@@ -17,12 +17,31 @@ config = {
         'HTTPModule': {
             'description': 'HTTP Honeypot',
             'advertise_version': 'httpd',
+            'default': {
+                'address': '0.0.0.0',
+                'port': 8080
+            },
             'path_backends': [
             ],
             'param_backends': [
                 'BusyBox',
                 'FileInjection'
             ]
+        },
+        'TelnetModule': {
+            'description': 'Simple Telnet Server',
+            'advertise_version': 'Raspbian GNU/Linux 10',
+            'default': {
+                'address': '0.0.0.0',
+                'port': 23
+            },
+            'shell_backend': 'BusyBox',
+            'auth': {
+                'attempts': 3,
+                'usernames': ['admin'],
+                'passwords': ['password'],
+                'allow_after_fail': True
+            }
         }
     },
     'backends': {
@@ -32,7 +51,7 @@ config = {
             'advertise_version': 'BusyBox v1.20.0 (2012-04-22 12:29:58 CEST) multi-call binary.',
             'env': {
                 # Empty string needed to treat absolute paths first
-                'path': ['', '/bin']
+                'path': ['', '/bin/']
             }
         },
         'FileInjection': {
