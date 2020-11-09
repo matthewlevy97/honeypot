@@ -7,11 +7,13 @@ import threading
 logger = logging.getLogger(__name__)
 
 class Database(threading.Thread):
-    THREAT_ENTRY         = 0
-    THREAT_ACTION_ENTRY  = 1
-    MODULE_ENTRY         = 2
-    BACKEND_ENTRY        = 3
-    BACKEND_ACTION_ENTRY = 4
+    THREAT_ENTRY                = 0
+    THREAT_ACTION_ENTRY         = 1
+    MODULE_ENTRY                = 2
+    BACKEND_ENTRY               = 3
+    BACKEND_ACTION_ENTRY        = 4
+    FILESYSTEM_ENTRY            = 5
+    FILESYSTEM_ACTION_ENTRY     = 6
     def __init__(self):
         super(Database, self).__init__()
         self._insert_queue = Queue()
@@ -31,7 +33,7 @@ class Database(threading.Thread):
             threat_id TEXT,
             action    TEXT,
             data      BLOB,
-            FOREIGN KEY(threat_id) REFERENCES threats(thread_id)
+            FOREIGN KEY(threat_id) REFERENCES threats(threat_id)
         );''')
         c.execute('''CREATE TABLE IF NOT EXISTS backend_action (
             action_id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -40,8 +42,18 @@ class Database(threading.Thread):
             backend_session_id TEXT,
             action             TEXT,
             data               BLOB,
-            FOREIGN KEY(threat_id) REFERENCES threats(thread_id),
+            FOREIGN KEY(threat_id) REFERENCES threats(threat_id),
             FOREIGN KEY(backend_id) REFERENCES backends(backend_id)
+        );''')
+        c.execute('''CREATE TABLE IF NOT EXISTS filesystem_action (
+            action_id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            threat_id             TEXT,
+            filesystem_id         TEXT,
+            filesystem_session_id TEXT,
+            action                TEXT,
+            data                  BLOB,
+            FOREIGN KEY(threat_id) REFERENCES threats(threat_id),
+            FOREIGN KEY(filesystem_id) REFERENCES filesystems(filesystem_id)
         );''')
         c.execute('''CREATE TABLE IF NOT EXISTS modules (
             module_id          TEXT PRIMARY KEY,
@@ -52,6 +64,11 @@ class Database(threading.Thread):
             backend_id          TEXT PRIMARY KEY,
             backend_name        TEXT,
             backend_description TEXT
+        );''')
+        c.execute('''CREATE TABLE IF NOT EXISTS filesystems (
+            filesystem_id          TEXT PRIMARY KEY,
+            filesystem_name        TEXT,
+            filesystem_description TEXT
         );''')
         self._conn.commit()
     def insertData(self, *args):
@@ -88,6 +105,15 @@ class Database(threading.Thread):
                 (threat_id, backend_id, backend_session_id, action, data)
                 VALUES
                 (?,?,?,?,?)''', threat[1:])
+            elif threat[0] == Database.FILESYSTEM_ACTION_ENTRY:
+                c.execute('''INSERT OR IGNORE INTO filesystem_action
+                (threat_id, filesystem_id, filesystem_session_id, action, data)
+                VALUES
+                (?,?,?,?,?)''', threat[1:])
+            elif threat[0] == Database.FILESYSTEM_ENTRY:
+                c.execute('''INSERT OR IGNORE INTO filesystems
+                VALUES
+                (?,?,?)''', threat[1:])
             else:
                 logger.debug('Invalid database table selected: {}'.format(threat[0]))
             self._conn.commit()

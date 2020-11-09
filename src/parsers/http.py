@@ -55,7 +55,7 @@ class HTTPRequest(object):
         global logger
         start_line = self._buffered_sock.recv_until(b'\r\n').decode('utf-8')
         if not start_line:
-            logger.error('No start line')
+            logger.error('No data received for start line')
             return False
         
         start_line = list(filter(None, start_line.split(' ')))

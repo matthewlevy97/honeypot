@@ -22,14 +22,16 @@ class HoneyBackend(object):
         sha.update(self._name.encode('utf-8'))
         sha.update(self._description.encode('utf-8'))
         self._uid = sha.digest().hex()
-        database.insertData(database.BACKEND_ENTRY, name, description, self._uid)
+        database.insertData(database.BACKEND_ENTRY, name, self._description, self._uid)
     def addBackendAction(self, key: str, value: bytes) -> bool:
         global logger
         if not self._handler.attack_id:
             logger.debug("Attached HoneyHandler must have created a new threat ID!")
             return False
         database.insertData(database.BACKEND_ACTION_ENTRY,
-            self._handler.attack_id, self._uid, self._session_id, key, value)
+            self._handler.attack_id, self._uid, self._session_id,
+            '{}_{}'.format(self._name, key), value
+        )
         return True
     '''
     Returns:

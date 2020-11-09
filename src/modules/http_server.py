@@ -33,25 +33,35 @@ class HTTPHandler(HoneyHandler):
         self.createThreatFromSocket(s)
         
         request = HTTPRequest(s)
-        self.addThreatInfo('HTTP Method', request.method)
-        self.addThreatInfo('HTTP Path', request.path)
-        self.addThreatInfo('HTTP Content', request.content)
-        self.addThreatInfo('HTTP Headers', json.dumps(request.headers))
+        self.addThreatInfo('REQUEST_METHOD', request.method)
+        self.addThreatInfo('REQUEST_PATH', request.path)
+        self.addThreatInfo('REQUEST_CONTENT', request.content)
+        self.addThreatInfo('REQUEST_HEADERS', json.dumps(request.headers))
         
         response = HTTPResponse(200)
         response.addHeader('date', time.strftime('%a, %d %b %Y %H:%M:%S %Z', time.gmtime()))
         response.addHeader('server', config['modules'][MODULE_NAME]['advertise_version'])
 
+        for backend_name in config['modules'][MODULE_NAME]['path_backends']:
+            backend = backend_collector.getBackend(backend_name)
+            if not backend:
+                continue
+            b = backend(self)
+            b_response = b.handle_input(request.path.encode('utf-8'), one_shot=True)
+            if b_response['success']:
+                self.addThreatInfo('BACKEND_SESSIONID', b.get_session_id())
+                if b_response['output']:
+                    response.addContent(b_response['output'])
+
         for param in request.params():
-            for backend_name in config['modules'][MODULE_NAME]['backends']:
+            for backend_name in config['modules'][MODULE_NAME]['param_backends']:
                 backend = backend_collector.getBackend(backend_name)
                 if not backend:
                     continue
-
                 b = backend(self)
                 b_response = b.handle_input(param[1].encode('utf-8'), one_shot=True)
                 if b_response['success']:
-                    self.addThreatInfo(b.get_name(), b.get_session_id())
+                    self.addThreatInfo('BACKEND_SESSIONID', b.get_session_id())
                     if b_response['output']:
                         response.addContent(b_response['output'])
 

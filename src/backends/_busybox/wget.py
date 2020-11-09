@@ -1,5 +1,10 @@
 from backends._busybox.busybox_command import BusyBoxCommand
 
+INVALID_WGET_OPTION = 'INVALID_WGET_OPTION'
+WGET_COMMAND_HELP   = 'WGET_COMMAND_HELP'
+WGET_COMMAND_ARGS   = 'WGET_COMMAND_ARGS'
+WGET_DOWNLOAD_URL   = 'WGET_DOWNLOAD_URL'
+
 class BusyBoxWget(BusyBoxCommand):
     def __init__(self):
         super(BusyBoxWget, self).__init__('wget')
@@ -8,7 +13,9 @@ class BusyBoxWget(BusyBoxCommand):
 Usage: wget [OPTION]... [URL]...
 
 Try `wget --help' for more options.
-'''.format(failed_option), [{'action': 'INVALID_WGET_OPTION', 'data': params}], 1)
+'''.format(failed_option), [
+        {'action': INVALID_WGET_OPTION, 'data': params}
+    ], 1)
     def help(self) -> str:
         return '''Usage: wget [-c|--continue] [-s|--spider] [-q|--quiet] [-O|--output-document FIL
 E]                                                                              
@@ -31,16 +38,15 @@ Retrieve files via HTTP or FTP
             'continue', 'spider', 'quiet', 'output-document=', 'header=',
             'proxy=', 'user-agent='
         ])
-        print(args)
         if not success:
             return args
         
         if len(args[0]) == 0 and len(args[1]) == 0:
-            return (self.help(), [{'action': 'COMMAND_HELP', 'data': 'wget'}], 1)
+            return (self.help(), [{'action': WGET_COMMAND_HELP, 'data': 'wget'}], 1)
         
-        actions.append({'action': 'WGET_DOWNLOAD', 'data': params})
+        actions.append({'action': WGET_COMMAND_ARGS, 'data': params})
         for url in args[1]:
-            actions.append({'action': 'WGET_DOWNLOAD_URL', 'data': url})
+            actions.append({'action': WGET_DOWNLOAD_URL, 'data': url})
         # TODO: Actually get file using above args
 
         return ('', actions, 0)

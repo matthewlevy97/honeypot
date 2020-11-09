@@ -1,5 +1,8 @@
 from backends._busybox.busybox_command import BusyBoxCommand
 
+ECHO_OUTPUT         = 'ECHO_OUTPUT'
+INVALID_ECHO_OPTION = 'INVALID_ECHO_OPTION'
+
 class BusyBoxEcho(BusyBoxCommand):
     SPACES_IN_TAB = 4
     def __init__(self):
@@ -17,7 +20,7 @@ Options:
 '''
     def invalid_option(self, params: list, failed_option: str) -> str:
         return (' '.join(params) + '\n',
-            [{'action': 'INVALID_ECHO_OPTION', 'data': params}],
+            [{'action': INVALID_ECHO_OPTION, 'data': params}],
             1
         )
     def execute(self, params: list) -> tuple:
@@ -49,4 +52,9 @@ Options:
         output = ' '.join(output)
         if add_newline:
             output += '\n'
-        return (output, [{'action': 'ECHO_OUTPUT', 'data': ' '.join(params)}], 0)
+        return (
+            output,
+            [
+                {'action': ECHO_OUTPUT, 'data': ' '.join(params)}
+            ],
+            0)

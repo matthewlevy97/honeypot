@@ -3,6 +3,7 @@ from backends._busybox.wget import BusyBoxWget
 from backends._busybox.echo import BusyBoxEcho
 from core.honeybackend import HoneyBackend
 from core.honeymodule import HoneyHandler
+from core.honeyfs import filesystem_collector
 from config import config
 import logging
 import json
@@ -12,15 +13,21 @@ import json
 BACKEND_NAME = 'BusyBox'
 logger = logging.getLogger(__name__)
 
+COMMAND_HELP     = 'COMMAND_HELP'
+APPLET_NOT_FOUND = 'APPLET_NOT_FOUND'
+
 class BusyBox(HoneyBackend):
     COMMANDS = {
-        'echo': BusyBoxEcho,
-        'wget': BusyBoxWget
+        '/bin/echo': BusyBoxEcho,
+        '/bin/wget': BusyBoxWget
     }
     def __init__(self, handler: HoneyHandler):
         super(BusyBox, self).__init__(BACKEND_NAME, handler)
         self._buffer = b''
         self._previous_return_value = 0
+        self._fs = filesystem_collector.getFilesystem(
+            config['backends'][BACKEND_NAME]['filesystem']
+        )(self._handler)
     def handle_input(self, data: bytes, one_shot: bool = False) -> dict:
         self._buffer += data
         
@@ -61,21 +68,26 @@ class BusyBox(HoneyBackend):
             self._buffer = b''
         return statement
     def _parse_statement(self, statement: str) -> tuple:
+        # Does not handle combining statements (ex '&&' and '||')
+        # Does not handle IO redirection
         if not statement:
             return (None, None)
         
         tokenize = statement.strip().split(' ')
-        if tokenize[0].lower() in BusyBox.COMMANDS:
-            cmd = BusyBox.COMMANDS[tokenize[0]]()
-            return cmd.execute(tokenize[1:])
-        elif tokenize[0].lower() == 'help':
+        if tokenize[0].lower() == 'help':
             if len(tokenize) > 1 and tokenize[1].lower() in BusyBox.COMMANDS:
                 cmd = BusyBox.COMMANDS[tokenize[1]]()
-                return (cmd.help(), [{'action': 'COMMAND_HELP', 'data': tokenize[1]}], 1)
+                return (cmd.help(), [{'action': COMMAND_HELP, 'data': tokenize[1]}], 1)
             else:
-                return (self.help(), [{'action': 'COMMAND_HELP', 'data': None}], 1)
+                return (self.help(), [{'action': COMMAND_HELP, 'data': None}], 1)
+        
+        for path in config['backends'][BACKEND_NAME]['env']['path']:
+            executable = '{}/{}'.format(path, tokenize[0]).lower()
+            if executable in BusyBox.COMMANDS:
+                cmd = BusyBox.COMMANDS[executable]()
+                return cmd.execute(tokenize[1:])
         
         return ('{}: applet not found\n'.format(tokenize[0]),
-            [{'action': 'APPLET_NOT_FOUND', 'data': tokenize[0]}],
+            [{'action': APPLET_NOT_FOUND, 'data': tokenize[0]}],
             1
         )
