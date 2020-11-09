@@ -5,6 +5,7 @@ import hashlib
 import threading
 import socket
 import uuid
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,17 @@ class HoneyHandler(threading.Thread):
         database.insertData(database.THREAT_ENTRY,
             self.attack_id, self.module.get_uid(),
             src_ip, src_port, dst_ip, dst_port)
+        
+        threat_path = '{}/{}'.format(
+            config['artifacts']['dir_name'],
+            self.attack_id
+        )
+        os.mkdir(threat_path, config['artifacts']['dir_perms'])
+        os.mkdir('{}/{}'.format(
+            threat_path, config['filesystem']['outfile_dir']
+            ),
+            config['artifacts']['dir_perms']
+        )
         logger.info('New Attack ID ({}) For Module ({})'.format(
             self.attack_id, self.module.get_uid()
         ))

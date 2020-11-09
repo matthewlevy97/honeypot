@@ -1,12 +1,13 @@
 from backends._busybox.busybox_command import BusyBoxCommand
+from core.honeybackend import HoneyShell
 
 ECHO_OUTPUT         = 'ECHO_OUTPUT'
 INVALID_ECHO_OPTION = 'INVALID_ECHO_OPTION'
 
 class BusyBoxEcho(BusyBoxCommand):
     SPACES_IN_TAB = 4
-    def __init__(self):
-        super(BusyBoxEcho, self).__init__('echo')
+    def __init__(self, shell: HoneyShell):
+        super(BusyBoxEcho, self).__init__('echo', shell)
     def help(self) -> str:
         return '''Usage: echo [-neE] [ARG...]
 
@@ -44,7 +45,6 @@ Options:
                 try:
                     param = param.encode('utf-8').decode('unicode_escape')
                 except Exception as e:
-                    print(e)
                     pass
             if param.find('\\t') >= 0 and interpret_tab:
                 param = param.replace('\\t', ' ' * BusyBoxEcho.SPACES_IN_TAB)

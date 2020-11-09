@@ -1,8 +1,10 @@
+from core.honeybackend import HoneyShell
 import getopt
 
 class BusyBoxCommand(object):
-    def __init__(self, name: str):
-        self.name = name
+    def __init__(self, name: str, shell: HoneyShell):
+        self.name  = name
+        self.shell = shell
     def parse(self, params: list, *args) -> tuple:
         try:
             args = getopt.getopt(params, *args)

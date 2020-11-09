@@ -16,6 +16,12 @@ logger = logging.getLogger(__name__)
 def main():
     logging.basicConfig(filename=config['logging']['file'], level=config['logging']['level'])
 
+    # Setup artifacts folder
+    try:
+        os.mkdirs(config['artifacts']['dir_name'], config['artifacts']['dir_perms'])
+    except FileExistsError:
+        pass
+
     # Add filesystems
     filesystem_collector.addFilesystem('IOT_FS', IOTFS)
 

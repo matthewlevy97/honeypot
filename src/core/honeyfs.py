@@ -60,17 +60,17 @@ class HoneyFS(object):
             self._cwd = new_cwd
             return self._cwd
         return None
-    def write_file(self, honey_file: dict, data: bytes, mode: int) -> bool:
+    def write_file(self, honey_file: dict, data: bytes, mode: int = WRITE_MODE_OVERWRITE) -> bool:
         if honey_file['type'] != HoneyFS.HONEYFS_FILE:
             return False
         
         self._modified = True
 
         if mode == HoneyFS.WRITE_MODE_OVERWRITE:
-            self._flush_write(honey_file, contents)
+            self._flush_write(honey_file, data)
             return True
         if mode == HoneyFS.WRITE_MODE_APPEND:
-            self._flush_write(honey_file, contents, True)
+            self._flush_write(honey_file, data, True)
             return True
         return False
     def read_file(self, honey_file: dict, num_bytes: int = -1) -> bytes:
@@ -169,6 +169,7 @@ class HoneyFS(object):
         ret = {'files': []}
         ret.update(self._create_general(HoneyFS.HONEYFS_DIRECTORY, name, real_path))
         if not setup_create:
+            ret['read_only'] = False
             self.addFilesystemAction(
                 'CREATE_DIRECTORY', json.dumps(ret)
             )
@@ -176,6 +177,7 @@ class HoneyFS(object):
     def create_file(self, name: str, real_path: str, setup_create: bool = False) -> dict:
         ret = self._create_general(HoneyFS.HONEYFS_FILE, name, real_path)
         if not setup_create:
+            ret['read_only'] = False
             self.addFilesystemAction(
                 'CREATE_FILE', json.dumps(ret)
             )
@@ -207,12 +209,21 @@ class HoneyFS(object):
             config['filesystem']['outfile_dir'],
             honey_file['file_id']
         )
+
         if append:
-            f = open(fs_file, 'ab')
+            if honey_file['read_only']:
+                f = open(fs_file, 'wb')
+                with open(honey_file['real_path']) as f_origin:
+                    f.write(f_origin.read())
+            else:
+                f = open(fs_file, 'ab')
         else:
             f = open(fs_file, 'wb')
         f.write(contents)
         f.close()
+
+        honey_file['read_only'] = False
+        honey_file['real_path'] = fs_file
     def _load_from_path(self, path: str) -> None:
         for (dirpath, dirnames, filenames) in walk(path):
             real_path = dirpath
@@ -254,7 +265,8 @@ class HoneyFS(object):
             'real_path': real_path,
             'user':      user,
             'group':     group,
-            'perms':     perms
+            'perms':     perms,
+            'read_only': True
         }
 
 class HoneyFSCollector(object):

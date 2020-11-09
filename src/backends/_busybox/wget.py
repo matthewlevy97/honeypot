@@ -1,4 +1,7 @@
 from backends._busybox.busybox_command import BusyBoxCommand
+from core.honeybackend import HoneyShell
+from config import config
+import requests
 
 INVALID_WGET_OPTION = 'INVALID_WGET_OPTION'
 WGET_COMMAND_HELP   = 'WGET_COMMAND_HELP'
@@ -6,8 +9,8 @@ WGET_COMMAND_ARGS   = 'WGET_COMMAND_ARGS'
 WGET_DOWNLOAD_URL   = 'WGET_DOWNLOAD_URL'
 
 class BusyBoxWget(BusyBoxCommand):
-    def __init__(self):
-        super(BusyBoxWget, self).__init__('wget')
+    def __init__(self, shell: HoneyShell):
+        super(BusyBoxWget, self).__init__('wget', shell)
     def invalid_option(self, params: list, failed_option: str) -> str:
         return ('''wget: invalid option -- '{}'
 Usage: wget [OPTION]... [URL]...
@@ -47,6 +50,29 @@ Retrieve files via HTTP or FTP
         actions.append({'action': WGET_COMMAND_ARGS, 'data': params})
         for url in args[1]:
             actions.append({'action': WGET_DOWNLOAD_URL, 'data': url})
-        # TODO: Actually get file using above args
+
+            if not config['SENSOR_ISOLATE']:
+                headers = {
+                    'User-Agent': config['SENSOR_OUTBOUND_USER_AGENT'],
+                }
+                try:
+                    req = requests.get(url, headers=headers)
+
+                    filename  = req.request.path_url
+                    real_path = '{}/{}/{}'.format(
+                        config['artifacts']['dir_name'],
+                        self.shell._session_id,
+                        filename
+                    )
+                    fs_obj = self.shell._fs.create_file(filename, real_path)
+                    cwd = self.shell._fs.get_cwd()
+                    if not cwd:
+                        pass
+                    cwd['files'].append(fs_obj)
+                    
+                    self.shell._fs.write_file(fs_obj, req.content)
+                except Exception as e:
+                    print(e)
+                    pass
 
         return ('', actions, 0)

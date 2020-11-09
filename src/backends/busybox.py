@@ -3,7 +3,7 @@ from backends._busybox.wget import BusyBoxWget
 from backends._busybox.echo import BusyBoxEcho
 from core.honeybackend import HoneyShell
 from core.honeymodule import HoneyHandler
-from core.honeyfs import HoneyFSFileNotFound
+from core.honeyfs import HoneyFSFileNotFound, HoneyFS
 from config import config
 import copy
 import logging
@@ -19,9 +19,11 @@ APPLET_NOT_FOUND = 'APPLET_NOT_FOUND'
 CMD_WHOAMI       = 'CMD_WHOAMI'
 CMD_CD           = 'CMD_CD'
 EXIT_SESSION     = 'EXIT_SESSION'
+RUN_PROGRAM      = 'RUN_PROGRAM'
 
 class BusyBox(HoneyShell):
     COMMANDS = {
+        '/bin/ls':      None, # Populated in init
         '/bin/exit':    None, # Populated in init
         '/bin/logout':  None, # Populated in init
         '/bin/cd':      None, # Populated in init
@@ -36,6 +38,7 @@ class BusyBox(HoneyShell):
         self._buffer = b''
         self._previous_return_value = 0
         self.commands = copy.deepcopy(BusyBox.COMMANDS)
+        self.commands['/bin/ls']      = self._ls
         self.commands['/bin/exit']    = self._exit
         self.commands['/bin/logout']  = self._exit
         self.commands['/bin/cd']      = self._cd
@@ -49,7 +52,6 @@ class BusyBox(HoneyShell):
         if not statement:
             while not statement and len(self._buffer) > 0:
                 statement = self._getStatement(one_shot)
-        print(statement)
         
         ret_val      = 1
         exit_session = False
@@ -98,16 +100,40 @@ class BusyBox(HoneyShell):
             statement = self._buffer
             self._buffer = b''
         return statement
-    def _exit(self, opts: list) -> tuple:
+    def _ls(self, shell: HoneyShell, opts: list) -> tuple:
+        ret = '\r\n'
+        for path in opts:
+            _, directory = self._fs.get_file(path)
+            if directory:
+                if directory['type'] == HoneyFS.HONEYFS_DIRECTORY:
+                    ret += '{}:\r\n'.format(path)
+                    for fs_obj in directory['files']:
+                        ret += '{}\r\n'.format(fs_obj['name'])
+                else:
+                    ret += '{}\r\n'.format(directory['name'])
+            else:
+                ret += 'ls: cannot access \'{}\': No such file or directory'.format(path)
+        if len(opts) == 0:
+            directory = self._fs.get_cwd()
+            if directory:
+                if directory['type'] == HoneyFS.HONEYFS_DIRECTORY:
+                    for fs_obj in directory['files']:
+                        ret += '{}\r\n'.format(fs_obj['name'])
+                else:
+                    ret += '{}\r\n'.format(directory['name'])
+            else:
+                ret += 'ls: cannot access \'{}\': No such file or directory'.format(path)
+        return (ret, [], 0)
+    def _exit(self, shell: HoneyShell, opts: list) -> tuple:
         return ('Exiting...', [{'action': EXIT_SESSION, 'data': self._session_id}], 0)
-    def _whoami(self, opts: list) -> tuple:
+    def _whoami(self, shell: HoneyShell, opts: list) -> tuple:
         if len(opts) > 0:
             return ('''Usage: whoami
 
 Print the user name associated with the current effective user id''', [], 1)
         return ('{}\r\n'.format(self.get_current_user()),
             [{'action': CMD_WHOAMI, 'data': self.get_current_user()}], 0)
-    def _cd(self, opts: list) -> tuple:
+    def _cd(self, shell: HoneyShell, opts: list) -> tuple:
         if len(opts) == 0:
             path = '/'
         else:
@@ -120,7 +146,7 @@ Print the user name associated with the current effective user id''', [], 1)
         if self._fs.set_cwd(target_dir):
             return (target_dir['name'], [{'action': CMD_CD, 'data': path}], 0)
         return ('{}: Not a directory'.format(path), [], 1)
-    def _shell_recurse(self, opts: list) -> tuple:
+    def _shell_recurse(self, shell: HoneyShell, opts: list) -> tuple:
         return self._parse_statement(' '.join(opts))
     def _parse_statement(self, statement: str) -> tuple:
         # Does not handle combining statements (ex '&&' and '||')
@@ -141,12 +167,20 @@ Print the user name associated with the current effective user id''', [], 1)
             if executable in self.commands:
                 try:
                     if issubclass(self.commands[executable], BusyBoxCommand):
-                        cmd = self.commands[executable]()
+                        cmd = self.commands[executable](self)
                         return cmd.execute(tokenize[1:])
                 except TypeError:
                     pass
                 if hasattr(self.commands[executable], '__call__'):
-                    return self.commands[executable](tokenize[1:])
+                    return self.commands[executable](self, tokenize[1:])
+        
+        try:
+            _, fs_obj = self._fs.get_file(tokenize[0])
+            if fs_obj and fs_obj['type'] == HoneyFS.HONEYFS_FILE:
+                self._buffer = self._fs.read_file(fs_obj) + self._buffer
+                return ('', [{'action': RUN_PROGRAM, 'data': tokenize[0]}], 0)
+        except HoneyFSException:
+            pass
         
         return ('{}: applet not found\n'.format(tokenize[0]),
             [{'action': APPLET_NOT_FOUND, 'data': tokenize[0]}],

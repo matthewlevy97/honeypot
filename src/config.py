@@ -3,15 +3,18 @@ import logging
 config = {
     'SENSOR_VERSION': b'0.1',
     'SENSOR_NAME': b'testing',
+    'SENSOR_ISOLATE': False, # Allow outbound connections for file retrieval
+    'SENSOR_OUTBOUND_USER_AGENT': 'Mozilla/5.0 (Linux; Android 4.0.4; Galaxy Nexus Build/IMM76B) AppleWebKit/535.19 (KHTML, like Gecko) Chrome/18.0.1025.133 Mobile Safari/535.19',
     'artifacts': {
-        'dir_name': 'threats/'
+        'dir_name': '/var/threats',
+        'dir_perms': 755
     },
     'database': {
         'file': 'honey.sql'
     },
     'logging': {
         'file': 'honey.log',
-        'level': logging.DEBUG
+        'level': logging.WARNING
     },
     'modules': {
         'HTTPModule': {
@@ -61,6 +64,7 @@ config = {
         }
     },
     'filesystem': {
+        'outfile_dir':  'fs',
         'outfile_name': 'fs.json',
         'default': {
             'user': 'root',
