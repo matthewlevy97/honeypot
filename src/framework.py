@@ -18,7 +18,7 @@ def main():
 
     # Setup artifacts folder
     try:
-        os.mkdirs(config['artifacts']['dir_name'], config['artifacts']['dir_perms'])
+        os.makedirs(config['artifacts']['dir_name'], config['artifacts']['dir_perms'])
     except FileExistsError:
         pass
 

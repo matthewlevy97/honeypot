@@ -36,7 +36,7 @@ config = {
             'advertise_version': 'Raspbian GNU/Linux 10',
             'default': {
                 'address': '0.0.0.0',
-                'port': 23
+                'port': 2323
             },
             'shell_backend': 'BusyBox',
             'auth': {

@@ -6,6 +6,7 @@ import logging
 import socket
 
 MODULE_NAME = 'TelnetModule'
+logger      = logging.getLogger(__name__)
 
 class TelnetModule(HoneyModule):
     def __init__(self, address: str = None, port: int = 0):

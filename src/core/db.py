@@ -22,6 +22,7 @@ class Database(threading.Thread):
         c.execute('''CREATE TABLE IF NOT EXISTS threats (
             threat_id TEXT PRIMARY KEY,
             module_id TEXT,
+            date      TEXT,
             src_ip    TEXT,
             src_port  INTEGER,
             dst_ip    TEXT,
@@ -51,7 +52,7 @@ class Database(threading.Thread):
             filesystem_id         TEXT,
             filesystem_session_id TEXT,
             action                TEXT,
-            data                  BLOB,
+            data                  TEXT,
             FOREIGN KEY(threat_id) REFERENCES threats(threat_id),
             FOREIGN KEY(filesystem_id) REFERENCES filesystems(filesystem_id)
         );''')
@@ -86,7 +87,7 @@ class Database(threading.Thread):
             if threat[0] == Database.THREAT_ENTRY:
                 c.execute('''INSERT INTO threats
                 VALUES
-                (?,?,?,?,?,?)''', threat[1:])
+                (?,?,CURRENT_TIMESTAMP,?,?,?,?)''', threat[1:])
             elif threat[0] == Database.THREAT_ACTION_ENTRY:
                 c.execute('''INSERT INTO threat_action
                 (threat_id, action, data)
